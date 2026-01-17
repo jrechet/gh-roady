@@ -1,0 +1,64 @@
+[package]
+name = "ghr"
+version = "0.1.0"
+edition = "2021"
+authors = ["Jeremy <email@example.com>"]
+description = "Modern GitHub CLI with TUI interface"
+license = "MIT"
+
+[dependencies]
+# CLI
+clap = { version = "4.5", features = ["derive", "env"] }
+
+# TUI
+ratatui = "0.28"
+crossterm = "0.28"
+
+# GitHub API
+octocrab = "0.38"
+reqwest = { version = "0.12", features = ["json"] }
+
+# Async
+tokio = { version = "1.35", features = ["full"] }
+futures = "0.3"
+async-trait = "0.1"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Config & Storage
+config = "0.14"
+dirs = "5.0"
+keyring = "2.3"
+toml = "0.8"
+
+# Error handling
+anyhow = "1.0"
+thiserror = "1.0"
+
+# Utilities
+colored = "2.1"
+chrono = { version = "0.4", features = ["serde"] }
+url = "2.5"
+dialoguer = "0.11"
+comfy-table = "7.1"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+dotenvy = "0.15"
+
+[dev-dependencies]
+tokio-test = "0.4"
+mockito = "1.2"
+tempfile = "3.8"
+mockall = "0.12"
+assert_cmd = "2.0"
+predicates = "3.1"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
