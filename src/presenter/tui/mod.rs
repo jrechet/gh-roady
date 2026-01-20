@@ -22,14 +22,12 @@ pub async fn run() -> Result<()> {
 
     // Create app
     let mut app = App::new().await?;
-    
-    // Load initial data
-    if app.client.is_some() {
-        app.load_repos().await?;
-    }
 
     // Main loop
     while !app.should_quit {
+        // Increment tick for animations
+        app.tick = app.tick.wrapping_add(1);
+        
         terminal.draw(|f| ui::render(f, &app))?;
 
         events::handle_events(&mut app).await?;

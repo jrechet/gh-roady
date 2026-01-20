@@ -139,26 +139,37 @@ impl GithubRepository for GitHubClient {
 
     async fn get_storage_usage(&self) -> Result<StorageUsageReport> {
         let mut total_used_billing = 0;
-        let mut total_max = 500 * 1024 * 1024; // 500 MB default
+        // Default to 2GB (Pro) as it's safer to overestimate, or 500MB if we can confirm Free
+        let mut total_max: u64 = 2 * 1024 * 1024 * 1024; 
         let mut items = Vec::new();
 
         // 1. Check Personal Billing
         let personal_billing_route = "/user/billing/shared-storage";
         if let Ok(resp) = self.client.get::<serde_json::Value, _, _>(personal_billing_route, None::<&()>).await {
-            total_used_billing = resp.get("total_usage_in_bytes")
+            total_used_billing = resp.get("estimated_storage_for_month")
                 .and_then(|v| v.as_u64())
+                .map(|gb| gb * 1024 * 1024 * 1024)
                 .unwrap_or(0);
+            
+            if let Some(included) = resp.get("included_gigabytes_bandwidth_used").and_then(|v| v.as_u64()) {
+                if included == 0 {
+                    // Likely Free plan if 0 included GB
+                    total_max = 500 * 1024 * 1024;
+                }
+            }
         }
 
-        // 2. Determine Plan and Max for Personal
+        // 2. Determine Plan and Max from /user endpoint (if available)
         if let Ok(user_val) = self.client.get::<serde_json::Value, _, _>("/user", None::<&()>).await {
             if let Some(plan) = user_val.get("plan") {
                 if let Some(name) = plan.get("name").and_then(|n| n.as_str()) {
-                    total_max = match name.to_lowercase().as_str() {
+                    let plan_name = name.to_lowercase();
+                    total_max = match plan_name.as_str() {
                         "free" => 500 * 1024 * 1024,
-                        "pro" | "team" => 2 * 1024 * 1024 * 1024,
+                        "pro" => 2 * 1024 * 1024 * 1024,
+                        "team" => 2 * 1024 * 1024 * 1024,
                         "enterprise" | "enterprise_cloud" => 50 * 1024 * 1024 * 1024,
-                        _ => 500 * 1024 * 1024,
+                        _ => 2 * 1024 * 1024 * 1024, // Default to Pro/2GB for unknown
                     };
                 }
             }

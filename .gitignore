@@ -5,3 +5,6 @@ Cargo.lock
 .env
 .DS_Store
 config.toml
+*-raw.md
+.idea
+ght

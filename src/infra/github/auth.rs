@@ -57,9 +57,17 @@ impl AuthManager {
 
     /// Get auth status
     pub async fn status(&self) -> Result<()> {
+        // Check gh CLI first
+        if self.config.has_gh_cli_token() {
+            println!("{}", "✓ Authenticated via gh CLI".green());
+        }
+
         if !self.config.has_token() {
             println!("{}", "✗ Not authenticated".red());
-            println!("Run 'ghr auth login' to authenticate");
+            println!("\nTo authenticate, run one of:");
+            println!("  {} (recommended)", "gh auth login".cyan());
+            println!("  {}", "ghr auth login --token YOUR_TOKEN".cyan());
+            println!("  {}", "export GITHUB_TOKEN=YOUR_TOKEN".cyan());
             return Ok(());
         }
 
@@ -68,7 +76,9 @@ impl AuthManager {
 
         match client.get_current_user().await {
             Ok(user) => {
-                println!("{}", "✓ Authenticated".green());
+                if !self.config.has_gh_cli_token() {
+                    println!("{}", "✓ Authenticated".green());
+                }
                 println!("User: {}", user.login.cyan());
                 if let Some(ref email) = user.email {
                     println!("Email: {}", email);
@@ -76,7 +86,7 @@ impl AuthManager {
             }
             Err(_) => {
                 println!("{}", "✗ Token is invalid".red());
-                println!("Run 'ghr auth login' to re-authenticate");
+                println!("Run 'gh auth login' or 'ghr auth login' to re-authenticate");
             }
         }
 

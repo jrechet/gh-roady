@@ -3,6 +3,18 @@ use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers};
 use std::time::Duration;
 
 pub async fn handle_events(app: &mut App) -> crate::domain::error::Result<()> {
+    // Process pending loads
+    if let Some(item) = app.pending_load {
+        app.pending_load = None; // clear it
+        match item {
+            MenuItem::Repositories => app.load_repos().await?,
+            MenuItem::AllArtifacts => app.load_all_artifacts().await?,
+            MenuItem::StorageManager => app.load_storage().await?,
+            _ => {}
+        }
+        return Ok(());
+    }
+
     // Clear success message after any key press
     if app.success_message.is_some() {
         if event::poll(Duration::from_millis(100))? {
@@ -13,7 +25,7 @@ pub async fn handle_events(app: &mut App) -> crate::domain::error::Result<()> {
         return Ok(());
     }
 
-    if event::poll(Duration::from_millis(100))? {
+    if event::poll(Duration::from_millis(10))? { // Reduced poll time for smoother animation
         if let Event::Key(key) = event::read()? {
             handle_key_event(app, key).await?;
         }
@@ -57,18 +69,24 @@ async fn handle_main_menu_keys(app: &mut App, key: KeyEvent) -> crate::domain::e
             match app.current_menu_item() {
                 MenuItem::Repositories => {
                     app.current_view = View::RepoList;
+                    app.loading = true;
+                    app.loading_message = "Loading repositories...".into();
                     app.selected_index = 0;
-                    app.load_repos().await?;
+                    app.pending_load = Some(MenuItem::Repositories);
                 }
                 MenuItem::AllArtifacts => {
                     app.current_view = View::ArtifactList;
+                    app.loading = true;
+                    app.loading_message = "Loading all artifacts...".into();
                     app.selected_index = 0;
-                    app.load_all_artifacts().await?;
+                    app.pending_load = Some(MenuItem::AllArtifacts);
                 }
                 MenuItem::StorageManager => {
                     app.current_view = View::StorageManager;
+                    app.loading = true;
+                    app.loading_message = "Scanning storage usage...".into();
                     app.selected_index = 0;
-                    app.load_storage().await?;
+                    app.pending_load = Some(MenuItem::StorageManager);
                 }
                 MenuItem::Quit => {
                     app.should_quit = true;

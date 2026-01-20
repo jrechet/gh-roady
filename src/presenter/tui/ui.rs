@@ -8,14 +8,25 @@ use ratatui::{
     Frame,
 };
 
-const ASCII_LOGO: &str = r#"
-   ██████╗ ██╗  ██╗      ██████╗  ██████╗  █████╗ ██████╗ ██╗   ██╗
-  ██╔════╝ ██║  ██║      ██╔══██╗██╔═══██╗██╔══██╗██╔══██╗╚██╗ ██╔╝
-  ██║  ███╗███████║█████╗██████╔╝██║   ██║███████║██║  ██║ ╚████╔╝ 
-  ██║   ██║██╔══██║╚════╝██╔══██╗██║   ██║██╔══██║██║  ██║  ╚██╔╝  
-  ╚██████╔╝██║  ██║      ██║  ██║╚██████╔╝██║  ██║██████╔╝   ██║   
-   ╚═════╝ ╚═╝  ╚═╝      ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═╝╚═════╝    ╚═╝   
-"#;
+const ASCII_LOGO_LINES: [&str; 6] = [
+    r"   ██████╗ ██╗  ██╗      ██████╗  ██████╗  █████╗ ██████╗ ██╗   ██╗",
+    r"  ██╔════╝ ██║  ██║      ██╔══██╗██╔═══██╗██╔══██╗██╔══██╗╚██╗ ██╔╝",
+    r"  ██║  ███╗███████║█████╗██████╔╝██║   ██║███████║██║  ██║ ╚████╔╝ ",
+    r"  ██║   ██║██╔══██║╚════╝██╔══██╗██║   ██║██╔══██║██║  ██║  ╚██╔╝  ",
+    r"  ╚██████╔╝██║  ██║      ██║  ██║╚██████╔╝██║  ██║██████╔╝   ██║   ",
+    r"   ╚═════╝ ╚═╝  ╚═╝      ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═╝╚═════╝    ╚═╝   ",
+];
+
+const RAINBOW_COLORS: [Color; 6] = [
+    Color::Rgb(255, 0, 0),     // Red
+    Color::Rgb(255, 127, 0),   // Orange
+    Color::Rgb(255, 255, 0),   // Yellow
+    Color::Rgb(0, 255, 0),     // Green
+    Color::Rgb(0, 127, 255),   // Blue
+    Color::Rgb(139, 0, 255),   // Violet
+];
+
+const SPINNER_FRAMES: [&str; 8] = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧"];
 
 pub fn render(f: &mut Frame, app: &App) {
     match app.current_view {
@@ -35,16 +46,58 @@ fn render_main_menu(f: &mut Frame, app: &App) {
         ])
         .split(f.area());
 
-    render_logo(f, chunks[0]);
+    render_rainbow_logo(f, chunks[0]);
     render_menu(f, chunks[1], app);
     render_menu_status(f, chunks[2]);
 }
 
-fn render_logo(f: &mut Frame, area: Rect) {
-    let logo = Paragraph::new(ASCII_LOGO)
-        .style(Style::default().fg(Color::Cyan))
+fn render_rainbow_logo(f: &mut Frame, area: Rect) {
+    let lines: Vec<Line> = ASCII_LOGO_LINES
+        .iter()
+        .enumerate()
+        .map(|(i, line)| {
+            Line::from(Span::styled(
+                *line,
+                Style::default().fg(RAINBOW_COLORS[i]).add_modifier(Modifier::BOLD),
+            ))
+        })
+        .collect();
+
+    let logo = Paragraph::new(lines)
         .alignment(Alignment::Center);
     f.render_widget(logo, area);
+}
+
+fn get_spinner(tick: u64) -> &'static str {
+    SPINNER_FRAMES[(tick as usize) % SPINNER_FRAMES.len()]
+}
+
+fn render_loading_screen(f: &mut Frame, message: &str, tick: u64) {
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(9),   // Logo
+            Constraint::Min(0),      // Loading message
+            Constraint::Length(3),   // Status
+        ])
+        .split(f.area());
+
+    render_rainbow_logo(f, chunks[0]);
+
+    let spinner = get_spinner(tick);
+    let loading_text = format!("{} {}", spinner, message);
+    
+    let loading = Paragraph::new(loading_text)
+        .style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))
+        .alignment(Alignment::Center)
+        .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(Color::DarkGray)));
+    f.render_widget(loading, chunks[1]);
+
+    let status = Paragraph::new("Please wait...")
+        .style(Style::default().fg(Color::DarkGray))
+        .alignment(Alignment::Center)
+        .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(Color::DarkGray)));
+    f.render_widget(status, chunks[2]);
 }
 
 fn render_menu(f: &mut Frame, area: Rect, app: &App) {
@@ -107,17 +160,20 @@ fn render_auth_prompt(f: &mut Frame) {
         ])
         .split(f.area());
 
-    render_logo(f, chunks[0]);
+    render_rainbow_logo(f, chunks[0]);
 
     let msg = vec![
         Line::from(""),
         Line::from(Span::styled("⚠  Authentication Required", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))),
         Line::from(""),
-        Line::from("Please login using the CLI first:"),
+        Line::from("Please login using one of these methods:"),
+        Line::from(""),
+        Line::from(Span::styled("  gh auth login", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD))),
+        Line::from(Span::styled("  (recommended - uses GitHub CLI)", Style::default().fg(Color::DarkGray))),
         Line::from(""),
         Line::from(Span::styled("  ghr auth login --token <YOUR_TOKEN>", Style::default().fg(Color::Cyan))),
         Line::from(""),
-        Line::from("Or set GITHUB_TOKEN environment variable."),
+        Line::from(Span::styled("  export GITHUB_TOKEN=<YOUR_TOKEN>", Style::default().fg(Color::Cyan))),
     ];
     let paragraph = Paragraph::new(msg)
         .block(Block::default().borders(Borders::ALL).title(" Authentication "))
@@ -133,6 +189,12 @@ fn render_auth_prompt(f: &mut Frame) {
 }
 
 fn render_feature_view(f: &mut Frame, app: &App) {
+    // If loading, show full-screen loading with logo
+    if app.loading {
+        render_loading_screen(f, &app.loading_message, app.tick);
+        return;
+    }
+
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -182,15 +244,6 @@ fn render_repo_list(f: &mut Frame, area: Rect, app: &App) {
         .direction(Direction::Vertical)
         .constraints(constraints)
         .split(area);
-
-    if app.loading {
-        let loading = Paragraph::new(format!("⏳ {}", app.loading_message))
-            .style(Style::default().fg(Color::Yellow))
-            .alignment(Alignment::Center)
-            .block(Block::default().borders(Borders::ALL));
-        f.render_widget(loading, list_chunks[0]);
-        return;
-    }
 
     if let Some(ref error) = app.error_message {
         let error_widget = Paragraph::new(format!("❌ {}", error))
@@ -297,15 +350,6 @@ fn render_repo_detail(f: &mut Frame, area: Rect, app: &App) {
 }
 
 fn render_artifact_list(f: &mut Frame, area: Rect, app: &App) {
-    if app.loading {
-        let loading = Paragraph::new(format!("⏳ {}", app.loading_message))
-            .style(Style::default().fg(Color::Yellow))
-            .alignment(Alignment::Center)
-            .block(Block::default().borders(Borders::ALL));
-        f.render_widget(loading, area);
-        return;
-    }
-
     if let Some(ref error) = app.error_message {
         let error_widget = Paragraph::new(format!("❌ {}", error))
             .style(Style::default().fg(Color::Red))
@@ -383,7 +427,13 @@ fn render_storage_manager(f: &mut Frame, area: Rect, app: &App) {
 
         let used_mb = report.total_used as f64 / 1_048_576.0;
         let max_mb = report.max_allowed as f64 / 1_048_576.0;
-        let label = format!("{:.2} MB / {:.2} MB ({:.1}%)", used_mb, max_mb, percentage);
+        
+        // Display in GB if > 1024 MB
+        let label = if max_mb >= 1024.0 {
+            format!("{:.2} MB / {:.2} GB ({:.1}%)", used_mb, max_mb / 1024.0, percentage)
+        } else {
+            format!("{:.2} MB / {:.2} MB ({:.1}%)", used_mb, max_mb, percentage)
+        };
 
         let gauge = Gauge::default()
             .block(Block::default().borders(Borders::ALL).title(" Storage Usage "))
@@ -393,27 +443,25 @@ fn render_storage_manager(f: &mut Frame, area: Rect, app: &App) {
 
         f.render_widget(gauge, chunks[0]);
     } else {
-        let loading = Paragraph::new("Loading storage info...")
+        let spinner = get_spinner(app.tick);
+        let loading = Paragraph::new(format!("{} Loading storage info...", spinner))
+            .style(Style::default().fg(Color::Yellow))
+            .alignment(Alignment::Center)
             .block(Block::default().borders(Borders::ALL).title(" Storage Usage "));
         f.render_widget(loading, chunks[0]);
     }
 
     // Item list
-    if app.loading {
-        let loading = Paragraph::new(format!("⏳ {}", app.loading_message))
-            .style(Style::default().fg(Color::Yellow))
-            .alignment(Alignment::Center)
-            .block(Block::default().borders(Borders::ALL));
-        f.render_widget(loading, chunks[1]);
-        return;
-    }
-
-    if app.storage_items.is_empty() {
-        let empty = Paragraph::new("No items found (>1KB). Your storage is clean!")
+    if app.storage_items.is_empty() && app.storage_report.is_some() {
+        let empty = Paragraph::new("✓ No items found (>1KB). Your storage is clean!")
             .style(Style::default().fg(Color::Green))
             .alignment(Alignment::Center)
             .block(Block::default().borders(Borders::ALL));
         f.render_widget(empty, chunks[1]);
+        return;
+    }
+
+    if app.storage_items.is_empty() {
         return;
     }
 

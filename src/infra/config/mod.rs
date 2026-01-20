@@ -6,6 +6,7 @@ use keyring::Entry;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
+use std::process::Command;
 
 const APP_NAME: &str = "ghr";
 const SERVICE_NAME: &str = "ghr-token";
@@ -88,11 +89,62 @@ impl ConfigManager {
         Ok(())
     }
 
-    /// Retrieve GitHub token from system keyring
+    /// Retrieve GitHub token - tries multiple sources in order:
+    /// 1. Environment variable GITHUB_TOKEN
+    /// 2. gh CLI token (via `gh auth token`)
+    /// 3. ghr's own keyring
     pub fn get_token(&self) -> Result<String> {
-        let entry = Entry::new(SERVICE_NAME, "default")?;
-        let token = entry.get_password()?;
-        Ok(token)
+        // 1. Try environment variable first
+        if let Ok(token) = std::env::var("GITHUB_TOKEN") {
+            if !token.is_empty() {
+                return Ok(token);
+            }
+        }
+
+        // 2. Try gh CLI token
+        if let Some(token) = self.get_gh_cli_token() {
+            return Ok(token);
+        }
+
+        // 3. Try our own keyring
+        match Entry::new(SERVICE_NAME, "default") {
+            Ok(entry) => {
+                match entry.get_password() {
+                    Ok(token) => Ok(token),
+                    Err(_) => Err(GhTuiError::Auth(
+                        "Not authenticated. Please run one of:\n\
+                         \n\
+                         • gh auth login          (recommended - uses GitHub CLI)\n\
+                         • ghr auth login --token YOUR_TOKEN\n\
+                         • export GITHUB_TOKEN=YOUR_TOKEN".into()
+                    ))
+                }
+            }
+            Err(_) => Err(GhTuiError::Auth(
+                "Not authenticated. Please run one of:\n\
+                 \n\
+                 • gh auth login          (recommended - uses GitHub CLI)\n\
+                 • ghr auth login --token YOUR_TOKEN\n\
+                 • export GITHUB_TOKEN=YOUR_TOKEN".into()
+            ))
+        }
+    }
+
+    /// Try to get token from gh CLI
+    fn get_gh_cli_token(&self) -> Option<String> {
+        let output = Command::new("gh")
+            .args(["auth", "token"])
+            .output()
+            .ok()?;
+
+        if output.status.success() {
+            let token = String::from_utf8(output.stdout).ok()?;
+            let token = token.trim();
+            if !token.is_empty() {
+                return Some(token.to_string());
+            }
+        }
+        None
     }
 
     /// Remove stored token
@@ -102,9 +154,14 @@ impl ConfigManager {
         Ok(())
     }
 
-    /// Check if token exists
+    /// Check if token exists (any source)
     pub fn has_token(&self) -> bool {
         self.get_token().is_ok()
+    }
+
+    /// Check specifically if gh CLI is authenticated
+    pub fn has_gh_cli_token(&self) -> bool {
+        self.get_gh_cli_token().is_some()
     }
 }
 

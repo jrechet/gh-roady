@@ -76,6 +76,8 @@ pub struct App {
     pub success_message: Option<String>,
     pub filter_text: String,
     pub client: Option<GitHubClient>,
+    pub tick: u64,
+    pub pending_load: Option<MenuItem>,
 }
 
 impl App {
@@ -101,6 +103,8 @@ impl App {
             success_message: None,
             filter_text: String::new(),
             client,
+            tick: 0,
+            pending_load: None, // New field
         })
     }
 
