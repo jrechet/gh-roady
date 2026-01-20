@@ -4,21 +4,28 @@ A modern, fast, and powerful GitHub CLI companion with a beautiful Terminal User
 
 Built with **Rust**, **Ratatui**, and **Octocrab**.
 
+## 🌈 Why gh-roady?
+
+If you've ever hit your GitHub Actions storage limit or struggled to find which repo is eating your 2GB quota, `ghr` is for you. It provides a visual, interactive way to clean up artifacts and caches across your entire account or organization.
+
 ## 🌟 Key Features
 
-- 🔐 **Secure Authentication**: Native integration with system keyring (Keychain, Secret Service, KWallet) or environment variables.
-- 📊 **Storage Management (`df`)**: Interactive storage usage analysis. Find and delete large artifacts and caches across all your repos to free up shared storage.
+- 🔐 **Zero-Config Auth**: Works out-of-the-box with `gh auth login`. Native integration with system keyring or environment variables.
+- 💾 **Storage Manager (`df`)**: Interactive storage usage analysis. Find and delete large artifacts and caches across ALL your repos instantly.
 - 📚 **Repository Exploration**: Live filtering and searching through your repositories and organizations.
-- 🖥️ **Interactive TUI**: A premium terminal interface for browsing your GitHub resources.
-- ⚡ **Blazing Fast**: Compiled Rust performance with minimal resource footprint.
+- 🖥️ **Interactive TUI**: A premium terminal interface with rainbow aesthetics, main menu navigation, and real-time loading indicators.
+- ⚡ **Blazing Fast**: Compiled Rust performance with a minimal resource footprint.
 
 ## 🚀 Installation
 
 ### Download Binaries
-You can download the latest pre-compiled binaries for macOS, Linux, and Windows from the [Releases](https://github.com/jrechet/gh-roady/releases) page.
+Download the latest pre-compiled binary for your system from the [Releases](https://github.com/jrechet/gh-roady/releases) page:
+- **macOS**: `ghr-macos-aarch64` (M1/M2/M3) or `ghr-macos-x86_64` (Intel)
+- **Linux**: `ghr-linux-x86_64`
+- **Windows**: `ghr-windows-x86_64.exe`
 
 ### Build from source
-If you have Rust installed, you can build it yourself:
+If you have Rust installed:
 
 ```bash
 git clone https://github.com/jrechet/gh-roady.git
@@ -26,54 +33,54 @@ cd gh-roady
 cargo build --release
 ```
 
-The binary will be available in `target/release/ghr`.
-
 ## 📖 Usage Guide
 
 ### 1. Authentication
-First, provide your GitHub Personal Access Token (PAT). `ghr` will securely store it in your system's keyring.
+`ghr` is smart. If you are already logged in with the official GitHub CLI, it just works!
 
 ```bash
-# Interactive login
+# Recommended: Login via GitHub CLI
+gh auth login
+
+# Or use ghr's own secure keyring
 ghr auth login --token <YOUR_TOKEN>
 ```
-*Tip: You can also set `GITHUB_TOKEN` in a `.env` file or as an environment variable.*
 
-### 2. Manage Storage Usage (`df`)
-This is the flagship feature for maintaining your GitHub Actions quota.
+### 2. Full TUI Mode (Recommended)
+Launch the immersive experience:
+```bash
+ghr tui
+```
+Navigate between **Repositories**, **All Artifacts**, and the **Storage Manager** from the main menu.
+
+#### TUI Controls:
+- **↑ / ↓** or **j / k**: Navigate lists / menus
+- **Enter**: Select menu item / View details
+- **Space**: Toggle selection in Storage Manager
+- **d**: Delete selected items (Storage Manager) or current artifact
+- **/**: Start live filtering/searching
+- **Esc**: Back to menu / Stop searching
+- **r**: Refresh data
+- **q**: Quit
+
+### 3. CLI Storage Command (`df`)
+Quickly check and clean your storage without entering the UI:
 
 ```bash
 ghr df
 ```
-- **Analyze**: See a visual bar of your shared storage usage vs. your plan limit.
-- **Detail**: Lists all artifacts and caches, sorted by size.
-- **Clean**: Select items using the **Space bar** and press **Enter** to delete them instantly.
+- **Analyze**: Visual bar of shared storage usage (detects Pro vs. Free limits).
+- **Detail**: Lists all items > 1KB, sorted by size.
+- **Clean**: Interactive multi-select for deletion.
 
-### 3. Quick Lists
+### 4. Other CLI Commands
 ```bash
 # List your repositories
 ghr ls
 
 # List artifacts for a specific repo
 ghr artifacts list --owner <USER> --repo <REPO>
-
-# Cleanup artifacts older than 30 days
-ghr artifacts delete --older-than 30
 ```
-
-### 4. Full TUI Mode
-For a more immersive experience, launch the TUI:
-```bash
-ghr tui
-```
-
-#### Controls:
-- **↑ / ↓** or **j / k**: Navigate list
-- **Enter**: View repository details
-- **/**: Start filtering/searching
-- **Esc**: Go back / Stop searching
-- **r**: Refresh data
-- **q**: Quit
 
 ## 📝 License
 
