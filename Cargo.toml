@@ -38,7 +38,7 @@ anyhow = "1.0"
 thiserror = "1.0"
 
 # Utilities
-colored = "2.1"
+colored = "3.0"
 chrono = { version = "0.4", features = ["serde"] }
 url = "2.5"
 dialoguer = "0.11"
