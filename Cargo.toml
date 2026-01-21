@@ -35,7 +35,7 @@ toml = "0.8"
 
 # Error handling
 anyhow = "1.0"
-thiserror = "1.0"
+thiserror = "2.0"
 
 # Utilities
 colored = "2.1"
