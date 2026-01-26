@@ -8,9 +8,8 @@ pub async fn handle_events(app: &mut App) -> crate::domain::error::Result<()> {
         app.pending_load = None; // clear it
         match item {
             MenuItem::Repositories => app.load_repos().await?,
-            MenuItem::AllArtifacts => app.load_all_artifacts().await?,
             MenuItem::StorageManager => app.load_storage().await?,
-            _ => {}
+            MenuItem::Quit => {}
         }
         return Ok(());
     }
@@ -73,13 +72,6 @@ async fn handle_main_menu_keys(app: &mut App, key: KeyEvent) -> crate::domain::e
                     app.loading_message = "Loading repositories...".into();
                     app.selected_index = 0;
                     app.pending_load = Some(MenuItem::Repositories);
-                }
-                MenuItem::AllArtifacts => {
-                    app.current_view = View::ArtifactList;
-                    app.loading = true;
-                    app.loading_message = "Loading all artifacts...".into();
-                    app.selected_index = 0;
-                    app.pending_load = Some(MenuItem::AllArtifacts);
                 }
                 MenuItem::StorageManager => {
                     app.current_view = View::StorageManager;

@@ -25,7 +25,6 @@ pub enum InputMode {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum MenuItem {
     Repositories,
-    AllArtifacts,
     StorageManager,
     Quit,
 }
@@ -34,7 +33,6 @@ impl MenuItem {
     pub fn all() -> Vec<MenuItem> {
         vec![
             MenuItem::Repositories,
-            MenuItem::AllArtifacts,
             MenuItem::StorageManager,
             MenuItem::Quit,
         ]
@@ -42,17 +40,15 @@ impl MenuItem {
 
     pub fn label(&self) -> &'static str {
         match self {
-            MenuItem::Repositories => "📚  Repositories",
-            MenuItem::AllArtifacts => "📦  All Artifacts",
-            MenuItem::StorageManager => "💾  Storage Manager (df)",
-            MenuItem::Quit => "🚪  Quit",
+            MenuItem::Repositories => "Repositories",
+            MenuItem::StorageManager => "Storage Manager",
+            MenuItem::Quit => "Quit",
         }
     }
 
     pub fn description(&self) -> &'static str {
         match self {
             MenuItem::Repositories => "Browse and explore your GitHub repositories",
-            MenuItem::AllArtifacts => "List all workflow artifacts across repositories",
             MenuItem::StorageManager => "Analyze and clean up storage usage",
             MenuItem::Quit => "Exit the application",
         }

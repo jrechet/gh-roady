@@ -20,7 +20,7 @@ impl From<octocrab::models::UserProfile> for User {
         Self {
             id: user.id.0,
             login: user.login,
-            name: Some(user.name),
+            name: user.name,
             email: user.email,
             avatar_url: user.avatar_url.to_string(),
             bio: user.bio,

@@ -8,7 +8,8 @@ use ratatui::{
     Frame,
 };
 
-const ASCII_LOGO_LINES: [&str; 6] = [
+const ASCII_LOGO_LINES: [&str; 7] = [
+    r"",
     r"   ██████╗ ██╗  ██╗      ██████╗  ██████╗  █████╗ ██████╗ ██╗   ██╗",
     r"  ██╔════╝ ██║  ██║      ██╔══██╗██╔═══██╗██╔══██╗██╔══██╗╚██╗ ██╔╝",
     r"  ██║  ███╗███████║█████╗██████╔╝██║   ██║███████║██║  ██║ ╚████╔╝ ",
@@ -17,21 +18,45 @@ const ASCII_LOGO_LINES: [&str; 6] = [
     r"   ╚═════╝ ╚═╝  ╚═╝      ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═╝╚═════╝    ╚═╝   ",
 ];
 
-const RAINBOW_COLORS: [Color; 6] = [
-    Color::Rgb(255, 0, 0),     // Red
-    Color::Rgb(255, 127, 0),   // Orange
-    Color::Rgb(255, 255, 0),   // Yellow
-    Color::Rgb(0, 255, 0),     // Green
-    Color::Rgb(0, 127, 255),   // Blue
-    Color::Rgb(139, 0, 255),   // Violet
-];
-
 const SPINNER_FRAMES: [&str; 8] = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧"];
+
+fn rainbow_color(position: f32) -> Color {
+    let p = position.clamp(0.0, 1.0);
+
+    // Smooth rainbow gradient: red -> orange -> yellow -> green -> cyan -> blue -> magenta -> red
+    let (r, g, b) = if p < 0.166 {
+        // Red to Orange
+        let t = p / 0.166;
+        (255, (165.0 * t) as u8, 0)
+    } else if p < 0.333 {
+        // Orange to Yellow
+        let t = (p - 0.166) / 0.166;
+        (255, 165 + (90.0 * t) as u8, 0)
+    } else if p < 0.5 {
+        // Yellow to Green
+        let t = (p - 0.333) / 0.166;
+        ((255.0 * (1.0 - t)) as u8, 255, 0)
+    } else if p < 0.666 {
+        // Green to Cyan
+        let t = (p - 0.5) / 0.166;
+        (0, 255, (255.0 * t) as u8)
+    } else if p < 0.833 {
+        // Cyan to Blue
+        let t = (p - 0.666) / 0.166;
+        (0, (255.0 * (1.0 - t)) as u8, 255)
+    } else {
+        // Blue to Magenta
+        let t = (p - 0.833) / 0.166;
+        ((180.0 * t) as u8, 0, 255)
+    };
+
+    Color::Rgb(r, g, b)
+}
 
 pub fn render(f: &mut Frame, app: &App) {
     match app.current_view {
         View::MainMenu => render_main_menu(f, app),
-        View::AuthPrompt => render_auth_prompt(f),
+        View::AuthPrompt => render_auth_prompt(f, app.tick),
         _ => render_feature_view(f, app),
     }
 }
@@ -40,26 +65,47 @@ fn render_main_menu(f: &mut Frame, app: &App) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(9),   // Logo
+            Constraint::Length(10),  // Logo
             Constraint::Min(0),      // Menu
             Constraint::Length(3),   // Status bar
         ])
         .split(f.area());
 
-    render_rainbow_logo(f, chunks[0]);
+    render_rainbow_logo(f, chunks[0], app.tick);
     render_menu(f, chunks[1], app);
     render_menu_status(f, chunks[2]);
 }
 
-fn render_rainbow_logo(f: &mut Frame, area: Rect) {
+fn render_rainbow_logo(f: &mut Frame, area: Rect, tick: u64) {
+    // Character-by-character rainbow gradient with animation
+    let offset = (tick as f32 * 0.02) % 1.0;
+
     let lines: Vec<Line> = ASCII_LOGO_LINES
         .iter()
         .enumerate()
-        .map(|(i, line)| {
-            Line::from(Span::styled(
-                *line,
-                Style::default().fg(RAINBOW_COLORS[i]).add_modifier(Modifier::BOLD),
-            ))
+        .map(|(line_idx, line)| {
+            let chars: Vec<char> = line.chars().collect();
+            let total_chars = chars.len().max(1);
+
+            let spans: Vec<Span> = chars
+                .iter()
+                .enumerate()
+                .map(|(char_idx, c)| {
+                    // Diagonal gradient: combine line and char position
+                    let position = ((char_idx as f32 / total_chars as f32)
+                        + (line_idx as f32 * 0.08)
+                        + offset) % 1.0;
+
+                    Span::styled(
+                        c.to_string(),
+                        Style::default()
+                            .fg(rainbow_color(position))
+                            .add_modifier(Modifier::BOLD),
+                    )
+                })
+                .collect();
+
+            Line::from(spans)
         })
         .collect();
 
@@ -76,17 +122,17 @@ fn render_loading_screen(f: &mut Frame, message: &str, tick: u64) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(9),   // Logo
+            Constraint::Length(10),  // Logo
             Constraint::Min(0),      // Loading message
             Constraint::Length(3),   // Status
         ])
         .split(f.area());
 
-    render_rainbow_logo(f, chunks[0]);
+    render_rainbow_logo(f, chunks[0], tick);
 
     let spinner = get_spinner(tick);
     let loading_text = format!("{} {}", spinner, message);
-    
+
     let loading = Paragraph::new(loading_text)
         .style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))
         .alignment(Alignment::Center)
@@ -102,25 +148,52 @@ fn render_loading_screen(f: &mut Frame, message: &str, tick: u64) {
 
 fn render_menu(f: &mut Frame, area: Rect, app: &App) {
     let menu_items = MenuItem::all();
-    
+
+    // Calculate menu dimensions for centering
+    let menu_height = (menu_items.len() * 4) as u16 + 4; // 4 lines per item + padding + borders
+    let menu_width = 56u16;
+
+    // Center the menu
+    let vertical_padding = area.height.saturating_sub(menu_height) / 2;
+    let horizontal_padding = area.width.saturating_sub(menu_width) / 2;
+
+    let centered_area = Rect {
+        x: area.x + horizontal_padding,
+        y: area.y + vertical_padding,
+        width: menu_width.min(area.width),
+        height: menu_height.min(area.height),
+    };
+
     let items: Vec<ListItem> = menu_items
         .iter()
         .enumerate()
         .map(|(i, item)| {
-            let style = if i == app.menu_index {
-                Style::default()
-                    .bg(Color::Rgb(60, 60, 100))
-                    .fg(Color::White)
-                    .add_modifier(Modifier::BOLD)
+            let is_selected = i == app.menu_index;
+
+            let (prefix, label_style, desc_style) = if is_selected {
+                (
+                    "  ▸ ",
+                    Style::default()
+                        .fg(Color::Rgb(120, 200, 255))
+                        .add_modifier(Modifier::BOLD),
+                    Style::default().fg(Color::Rgb(100, 140, 180)),
+                )
             } else {
-                Style::default().fg(Color::Gray)
+                (
+                    "    ",
+                    Style::default().fg(Color::Rgb(140, 140, 140)),
+                    Style::default().fg(Color::Rgb(80, 80, 80)),
+                )
             };
 
             let content = vec![
-                Line::from(Span::styled(item.label(), style)),
+                Line::from(vec![
+                    Span::styled(prefix, if is_selected { Style::default().fg(Color::Rgb(255, 180, 100)) } else { Style::default() }),
+                    Span::styled(item.label(), label_style),
+                ]),
                 Line::from(Span::styled(
-                    format!("    {}", item.description()),
-                    Style::default().fg(Color::DarkGray),
+                    format!("      {}", item.description()),
+                    desc_style,
                 )),
                 Line::from(""),
             ];
@@ -133,12 +206,11 @@ fn render_menu(f: &mut Frame, area: Rect, app: &App) {
         .block(
             Block::default()
                 .borders(Borders::ALL)
-                .border_style(Style::default().fg(Color::DarkGray))
-                .title(" Main Menu ")
-                .title_style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+                .border_style(Style::default().fg(Color::Rgb(60, 60, 80)))
+                .title_alignment(Alignment::Center),
         );
 
-    f.render_widget(list, area);
+    f.render_widget(list, centered_area);
 }
 
 fn render_menu_status(f: &mut Frame, area: Rect) {
@@ -150,17 +222,17 @@ fn render_menu_status(f: &mut Frame, area: Rect) {
     f.render_widget(status, area);
 }
 
-fn render_auth_prompt(f: &mut Frame) {
+fn render_auth_prompt(f: &mut Frame, tick: u64) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(9),
+            Constraint::Length(10),
             Constraint::Min(0),
             Constraint::Length(3),
         ])
         .split(f.area());
 
-    render_rainbow_logo(f, chunks[0]);
+    render_rainbow_logo(f, chunks[0], tick);
 
     let msg = vec![
         Line::from(""),
@@ -198,14 +270,14 @@ fn render_feature_view(f: &mut Frame, app: &App) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(3),   // Header
+            Constraint::Length(8),   // Logo
             Constraint::Min(0),      // Content
             Constraint::Length(3),   // Status bar
         ])
         .split(f.area());
 
-    render_header(f, chunks[0], app);
-    
+    render_rainbow_logo(f, chunks[0], app.tick);
+
     match app.current_view {
         View::RepoList => render_repo_list(f, chunks[1], app),
         View::RepoDetail => render_repo_detail(f, chunks[1], app),
@@ -213,24 +285,8 @@ fn render_feature_view(f: &mut Frame, app: &App) {
         View::StorageManager => render_storage_manager(f, chunks[1], app),
         _ => {}
     }
-    
+
     render_status_bar(f, chunks[2], app);
-}
-
-fn render_header(f: &mut Frame, area: Rect, app: &App) {
-    let title = match app.current_view {
-        View::RepoList => " 📚 Repositories ",
-        View::RepoDetail => " 📖 Repository Details ",
-        View::ArtifactList => " 📦 Artifacts ",
-        View::StorageManager => " 💾 Storage Manager ",
-        _ => " gh-roady ",
-    };
-
-    let header = Paragraph::new(title)
-        .style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))
-        .alignment(Alignment::Center)
-        .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(Color::DarkGray)));
-    f.render_widget(header, area);
 }
 
 fn render_repo_list(f: &mut Frame, area: Rect, app: &App) {
@@ -496,7 +552,7 @@ fn render_storage_manager(f: &mut Frame, area: Rect, app: &App) {
                 Span::raw(type_icon),
                 Span::raw(" "),
                 Span::styled(format!("{:<40}", item.name), style),
-                Span::styled(format!("{:>10}", size), Style::default().fg(Color::Blue)),
+                Span::styled(format!("{:>10}", size), Style::default().fg(Color::Green)),
                 Span::raw(" "),
                 Span::styled(format!("[{}/{}]", item.owner, item.repo), Style::default().fg(Color::DarkGray)),
             ]);
