@@ -22,6 +22,22 @@ cargo clippy             # Lint
 cargo fmt                # Format code
 ```
 
+## CI/CD disponibles
+
+Le dépôt est hybride : il vit sur GitHub (référence) et sur la forge Forgejo
+`https://forge.jrec.fr/jrechet/gh-roady` (suiveur).
+
+- **GitHub Actions** (`.github/workflows/`) : `release.yml` seulement (tag `v*` : build
+  Linux/macOS/Windows sur les runners GitHub et publication des binaires sur la release).
+  Pas de CI de PR côté GitHub. Suivi : `gh run list`, `gh run view <id> --log-failed`.
+- **Forge** : `.github/workflows/mirror-to-forge.yml` recopie chaque branche et tag sur la
+  forge (secret `FORGE_TOKEN`, posé par le propriétaire). La forge n'exécute que
+  `.forgejo/workflows/ci.yml` (`cargo fmt --check`, `clippy`, `build`, `test` sur
+  `[self-hosted, jre-server]` ; `fmt` et `clippy` non bloquants tant qu'ils échouent sur
+  `main`) : jamais de release. Ne pas y ajouter d'action propre à
+  GitHub. Suivi : `ssh jrec.fr '~/dev/server-app/forgejo/forge-tool.sh runs gh-roady'`.
+- **Un seul endroit publie** : GitHub (`release.yml`), tant qu'il reste la référence.
+
 ## Architecture
 
 This is a Rust CLI/TUI tool (`ghr`) for managing GitHub Actions storage (artifacts/caches). It follows strict **Domain-Driven Design (DDD)** with 4 layers:

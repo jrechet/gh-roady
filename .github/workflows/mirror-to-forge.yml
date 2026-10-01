@@ -1,0 +1,68 @@
+# Miroir GitHub -> forge.jrec.fr (Forgejo), pour que le depot vive des deux cotes.
+# GitHub reste la reference : chaque push de branche ou de tag est recopie de force sur la
+# forge, et une branche supprimee ici l est aussi la-bas. La forge lance alors sa propre CI
+# (.forgejo/workflows/), jamais de deploiement.
+#
+# Secret requis : FORGE_TOKEN (jeton Forgejo du compte jrechet, portee write:repository).
+# Sans lui, le job s arrete proprement. Pour couper le miroir sans toucher au code :
+# variable de depot FORGE_MIRROR=false.
+# Depot public : le miroir tourne sur ubuntu-latest (gratuit, et pas de runner self-hosted
+# expose a des PR de forks). Seule la forge utilise les runners du serveur.
+
+name: Miroir vers la forge
+
+on:
+  push:
+    branches: ['**']
+    tags: ['**']
+  delete:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mirror-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  FORGE_REPO: https://forge.jrec.fr/jrechet/gh-roady.git
+
+jobs:
+  mirror:
+    if: vars.FORGE_MIRROR != 'false'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Pousser la reference vers la forge
+        env:
+          FORGE_TOKEN: ${{ secrets.FORGE_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.event_name == 'delete' && format('refs/{0}/{1}', github.event.ref_type == 'tag' && 'tags' || 'heads', github.event.ref) || github.ref }}
+        run: |
+          set -eu
+          if [ -z "${FORGE_TOKEN}" ]; then
+            echo "::notice::FORGE_TOKEN absent : miroir desactive"; exit 0
+          fi
+          HOST=$(echo "${FORGE_REPO#https://}" | cut -d/ -f1)
+          if ! getent hosts "$HOST" >/dev/null; then
+            echo "::warning::$HOST ne resout pas (enregistrement DNS absent) : miroir saute"; exit 0
+          fi
+          FORGE="https://jrechet:${FORGE_TOKEN}@${FORGE_REPO#https://}"
+          if [ "$EVENT" = delete ]; then
+            git init -q mirror && cd mirror
+            git push "$FORGE" ":${REF}" || echo "::warning::${REF} absente de la forge"
+            exit 0
+          fi
+          # Clone nu et complet : l historique entier doit exister sur la forge.
+          git clone -q --bare "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" mirror.git
+          cd mirror.git
+          # Garde-fou : sans .forgejo/workflows/, Forgejo lirait .github/workflows/ et lancerait
+          # nos workflows GitHub (deploiements compris). Une telle reference n est pas recopiee.
+          if [ -z "$(git ls-tree -d "$REF" .forgejo/workflows)" ]; then
+            echo "::notice::${REF} n a pas de .forgejo/workflows/ : non recopiee sur la forge"; exit 0
+          fi
+          git push --force "$FORGE" "${REF}:${REF}"
+      - name: Nettoyer
+        if: always()
+        run: rm -rf mirror mirror.git
