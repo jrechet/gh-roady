@@ -1,0 +1,48 @@
+# CI de la forge forge.jrec.fr (Forgejo Actions) : build et tests Rust sur le runner du
+# serveur. Le seul workflow GitHub (release.yml, tags v*) n est PAS reproduit : la release
+# (binaires macOS/Windows/Linux, softprops/action-gh-release) reste sur GitHub.
+# La presence de ce dossier fait ignorer .github/workflows/ par Forgejo.
+# Les actions hors `actions/*` portent leur URL complete (resolution sur github.com).
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-and-test:
+    runs-on: [self-hosted, jre-server]
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install Rust
+        uses: https://github.com/dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: cargo-${{ runner.os }}-${{ hashFiles('Cargo.toml') }}
+          restore-keys: cargo-${{ runner.os }}-
+      # fmt et clippy echouent deja sur main (code jamais passe en CI) : signales sans
+      # bloquer tant que le code n est pas remis au propre. Build et tests bloquent.
+      - run: cargo fmt --all -- --check
+        continue-on-error: true
+      - run: cargo clippy -- -D warnings
+        continue-on-error: true
+      - run: cargo build
+      - run: cargo test
