@@ -32,7 +32,7 @@ serde_json = "1.0"
 config = "0.15"
 dirs = "6.0"
 keyring = "2.3"
-toml = "0.9"
+toml = "1.0"
 
 # Error handling
 anyhow = "1.0"
